@@ -28,10 +28,10 @@ class SatelliteDataset(Dataset):
 		
 		for root, dirs, files in os.walk(data_dir):
 			for file in files:
-				if file.split('.')[-1] == "jpg":
-					self.names.append(file)
-					self.len += 1
-					self.semmaps.append(file.split('.')[0] + "_seg.png")
+				#if file.split('.')[-1] == "jpg":
+				self.names.append(file)
+				self.len += 1
+				#	self.semmaps.append(file.split('.')[0] + "_seg.png")
 
 	def __len__(self):
 		return self.len
@@ -42,15 +42,10 @@ class SatelliteDataset(Dataset):
 
 		img_name = os.path.join(self.data_dir,self.names[idx])
 		
-		image = io.imread(img_name)
-		#image = image.transpose((2, 0, 1))
-		#image = torch.from_numpy(image).float()
+		image, mask = np.split(io.imread(img_name),2, 1)
 
-		mask_name = os.path.join(self.data_dir,self.semmaps[idx])
-		
-		mask = io.imread(mask_name)
-		#mask = mask.transpose((2, 0, 1))
-		#mask = torch.from_numpy(mask).float()
+		#mask_name = os.path.join(self.data_dir,self.semmaps[idx])
+		#mask = io.imread(mask_name)
 
 		if self.transform:
 			image = self.transform(image)
