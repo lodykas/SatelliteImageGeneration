@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 class SatelliteDataset(Dataset):
 	"""Face Landmarks dataset."""
 
-	def __init__(self, data_dir, transform=None):
+	def __init__(self, data_dir, transform=None, data_augment=None):
 		"""
 		Args:
 			csv_file (string): Path to the csv file with annotations.
@@ -21,6 +21,7 @@ class SatelliteDataset(Dataset):
 		"""
 		self.data_dir = data_dir
 		self.transform = transform
+		self.data_augment = data_augment
 			
 		self.names = []
 		self.semmaps = []
@@ -46,6 +47,9 @@ class SatelliteDataset(Dataset):
 
 		#mask_name = os.path.join(self.data_dir,self.semmaps[idx])
 		#mask = io.imread(mask_name)
+		if self.data_augment:
+			image = np.concatenate((image, mask),axis = 2)
+			image, mask = np.split(self.data_augment(image),2, axis=2)
 
 		if self.transform:
 			image = self.transform(image)
