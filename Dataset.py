@@ -24,15 +24,17 @@ class SatelliteDataset(Dataset):
 		self.data_augment = data_augment
 			
 		self.names = []
-		self.semmaps = []
+		self.label = []
 		self.len = 0
 		
 		for root, dirs, files in os.walk(data_dir):
 			for file in files:
-				#if file.split('.')[-1] == "jpg":
 				self.names.append(file)
 				self.len += 1
-				#	self.semmaps.append(file.split('.')[0] + "_seg.png")
+				if file.find("ADE"):
+					self.label.append(0.0)
+				else:
+					self.label.append(1.0)
 
 	def __len__(self):
 		return self.len
@@ -42,20 +44,16 @@ class SatelliteDataset(Dataset):
 			idx = idx.tolist()
 
 		img_name = os.path.join(self.data_dir,self.names[idx])
-		
-		image, mask = np.split(io.imread(img_name),2, 1)
+		image = io.imread(img_name)
 
-		#mask_name = os.path.join(self.data_dir,self.semmaps[idx])
-		#mask = io.imread(mask_name)
-		if self.data_augment:
+		"""if self.data_augment:
 			image = np.concatenate((image, mask),axis = 2)
-			image, mask = np.split(self.data_augment(image),2, axis=2)
+			image, mask = np.split(self.data_augment(image),2, axis=2)"""
 
 		if self.transform:
 			image = self.transform(image)
-			mask = self.transform(mask)
 
-		return image, mask
+		return image, self.label[idx]
 
 
 def test():
@@ -64,5 +62,6 @@ def test():
 		img = data[i]
 		print(i)
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
 	test()
