@@ -1,6 +1,6 @@
 .idea/
 data2/
-models/
+/models/
 papers/
 results/
 val/
