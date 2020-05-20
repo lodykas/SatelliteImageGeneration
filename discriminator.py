@@ -9,7 +9,7 @@ import random
 
 image_size = 512
 batch_size = 20
-num_epochs = 5
+num_epochs = 20
 lr = 0.0002
 beta1 = 0.5
 
@@ -44,7 +44,8 @@ transform = transforms.Compose(
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-dataSet = SatelliteDataset("data2\\", transform=transform, data_augment=None)
+# dataSet = SatelliteDataset("data2\\", transform=transform, data_augment=data_augment)
+dataSet = HighwayDataset("pix2pix\\pytorch-CycleGAN-and-pix2pix\\datasets\\maps\\road_train", transform=transform, data_augment=data_augment)
 dataloader = torch.utils.data.DataLoader(dataSet, batch_size=batch_size, shuffle=True, num_workers=0)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -69,9 +70,6 @@ while epoch < num_epochs:
         label = label.to(device, dtype=torch.float)
 
         input = data.to(device)
-        size = input.size()[0]
-        #noise = Tensor(torch.randn(input.size()[0], nz, 1, 1)).repeat(1, 1, image_size, image_size).to(device)
-        #fake = netG(torch.cat((mask, noise), 1))
 
         netC.zero_grad()
         optimizerC.zero_grad()
@@ -82,9 +80,5 @@ while epoch < num_epochs:
         optimizerC.step()
 
     print("Classifier error: %f" % (errC))
-    if epoch % 5 == 0:
-        #to_save = torch.cat((fake[0], mask[0], input[0]), 2)
-        #vutils.save_image(to_save, '%s/samples_epoch_%03d_mask.png' % ("./results", epoch))
-        # vutils.save_image(fake[0], '%s/samples_epoch_%03d_fake.png' % ("./results", epoch))
-        torch.save(netC.state_dict(), "./models/Classifier.nn")
     epoch = epoch + 1
+torch.save(netC.state_dict(), "models\\Classifier.nn")
