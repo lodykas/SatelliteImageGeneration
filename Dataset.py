@@ -46,9 +46,56 @@ class SatelliteDataset(Dataset):
 		img_name = os.path.join(self.data_dir,self.names[idx])
 		image = io.imread(img_name)
 
-		"""if self.data_augment:
-			image = np.concatenate((image, mask),axis = 2)
-			image, mask = np.split(self.data_augment(image),2, axis=2)"""
+		if self.data_augment:
+			image = self.data_augment(image)
+
+		if self.transform:
+			image = self.transform(image)
+
+		return image, self.label[idx]
+
+
+class HighwayDataset(Dataset):
+	"""Face Landmarks dataset."""
+
+	def __init__(self, data_dir, transform=None, data_augment=None):
+		self.data_dir = data_dir
+		self.transform = transform
+		self.data_augment = data_augment
+
+		self.names = []
+		self.label = []
+		self.len = 0
+
+		for root, dirs, files in os.walk(data_dir):
+			for dir in dirs:
+				if dir == "road":
+					label = 1.0
+				else:
+					label = 0.0
+				inner = os.path.join(data_dir, dir)
+				for _, _, files in os.walk(inner):
+					for file in files:
+						file_name= os.path.join(dir, file)
+						self.names.append(file_name)
+						self.len += 1
+						self.label.append(label)
+
+	def __len__(self):
+		return self.len
+
+	def __getitem__(self, idx):
+		if torch.is_tensor(idx):
+			idx = idx.tolist()
+
+		img_name = os.path.join(self.data_dir, self.names[idx])
+		image = io.imread(img_name)
+
+		if image.shape[0] != image.shape[1]:
+			image, _ = np.split(image, 2, axis=1)
+
+		if self.data_augment:
+			image = self.data_augment(image)
 
 		if self.transform:
 			image = self.transform(image)
