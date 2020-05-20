@@ -1,0 +1,9 @@
+.idea/
+data2/
+models/
+papers/
+results/
+val/
+satelliteonly/
+pix2pix/pytorch-CycleGAN-and-pix2pix/results/
+pix2pix/pytorch-CycleGAN-and-pix2pix/datasets/maps/
