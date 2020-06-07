@@ -1,8 +1,11 @@
+import os
+
 import torch
 from torch import nn
 from .base_model import BaseModel
 from models import create_model
 from . import networks
+from itertools import chain
 import copy
 
 
@@ -48,7 +51,7 @@ class Pix2PixModel(BaseModel):
         BaseModel.__init__(self, opt)
 
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = []
+        self.loss_names = ['G', 'D']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         self.visual_names = ['real_A',  'real_B', 'fake_B']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
@@ -56,39 +59,49 @@ class Pix2PixModel(BaseModel):
             self.model_names = ['G', 'D']
         else:  # during test time, only load G
             self.model_names = ['G']
+        if self.opt.scaled_discriminator:
+            self.model_names.append('small_D')
+            self.pool = torch.nn.AvgPool2d(2)
         # define networks (both generator and discriminator)
 
         self.netG = networks.define_G(opt.input_nc + opt.noise, opt.output_nc, opt.ngf, opt.netG, opt.norm,
                                       not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
-        if opt.inner:
-            sub_opt = copy.copy(opt)
-            sub_opt.load_size = 150
-            sub_opt.crop_size = 128
-            sub_opt.ngf = 64
-            sub_opt.epoch = "small"
-            sub_opt.isTrain = False
-            sub_opt.inner = False
-            model_low = create_model(sub_opt)  # create a model given opt.model and other options
-            model_low.setup(sub_opt)  # regular setup: load and print networks; create schedulers
-            self.set_requires_grad(model_low.netG, False)
-            model_low = model_low.netG.module
-            self.model_low = nn.DataParallel(nn.Sequential(*[model_low.down_model, model_low.middle_model, model_low.up_model]))
+        if opt.inner > 0:
+            self.model_names.append('small_G')
+            self.netsmall_G = networks.define_G(opt.input_nc + opt.noise, opt.output_nc, opt.ngf*4, opt.netG, opt.norm,
+                                      not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+            load_path = os.path.join(self.save_dir, "latest_net_small_G.pth")
+            state_dict = torch.load(load_path, map_location=str(self.device))
+            self.netsmall_G.module.load_state_dict(state_dict)
+            self.small_G = nn.DataParallel(
+                nn.Sequential(*[self.netsmall_G.module.down_model, self.netsmall_G.module.middle_model, self.netsmall_G.module.up_model]))
 
         if self.isTrain:  # define a discriminator; conditional GANs need to take both input and output images; Therefore, #channels for D is input_nc + output_nc
+            if opt.FMLoss_weight > 0:
+                FML = True
+            else:
+                FML = False
             self.netD = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf, opt.netD,
-                                          opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
+                                          opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids, FML)
 
-            self.small_netD = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf, opt.netD,
-                                          opt.n_layers_D - 1, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
+            self.netsmall_D = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf,  opt.netD,
+                                          opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids, FML)
 
         if self.isTrain:
             # define loss functions
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
             self.criterionL1 = torch.nn.L1Loss()
+            if opt.FMLoss_weight > 0:
+                self.criterionFM = networks.FMLoss().to(self.device)
+
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
-            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            if opt.inner > 1:
+                params = chain(self.netG.parameters(), self.netsmall_G.parameters())
+            else:
+                params = self.netG.parameters()
+            self.optimizer_G = torch.optim.Adam(params, lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_smallD = torch.optim.Adam(self.small_netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_smallD = torch.optim.Adam(self.netsmall_D.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
             self.optimizers.append(self.optimizer_smallD)
@@ -110,8 +123,8 @@ class Pix2PixModel(BaseModel):
         size = real_A.size()[0]
         noise = torch.Tensor(torch.randn(size, self.opt.noise, 1, 1)).repeat(1, 1, self.opt.crop_size, self.opt.crop_size).to(self.device)
         real_A = torch.cat((real_A, noise), 1)
-        if self.opt.inner:
-            return net(real_A, self.model_low)
+        if self.opt.inner > 0:
+            return net(real_A, self.small_G)
         return net(real_A, None)
 
     def forward(self):
@@ -135,7 +148,7 @@ class Pix2PixModel(BaseModel):
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
         if self.opt.scaled_discriminator:
-            self.backward_net_D(self.small_netD, self.real_A, self.fake_B, self.real_B)
+            self.backward_net_D(self.netsmall_D, self.pool(self.real_A), self.pool(self.fake_B), self.pool(self.real_B))
         self.loss_D_fake, self.loss_D_real, self.loss_D = self.backward_net_D(self.netD, self.real_A,
                                                                               self.fake_B, self.real_B)
 
@@ -143,14 +156,28 @@ class Pix2PixModel(BaseModel):
         # First, G(A) should fake the discriminator
         fake_AB = torch.cat((real_A, fake_B), 1)
         pred_fake = netD(fake_AB)
+
+        if self.opt.FMLoss_weight > 0:
+            self.criterionFM.set_fake_feature(netD.module)
+
         loss_G_GAN = self.criterionGAN(pred_fake, True)
         if self.opt.scaled_discriminator:
-            pred_fake = self.small_netD(fake_AB)
+            pred_fake = self.netsmall_D(fake_AB)
             loss_G_GAN += self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
         loss_G_L1 = self.criterionL1(fake_B, real_B) * self.opt.lambda_L1
+
+        # third, get true targets for Feature matching loss
+        if self.opt.FMLoss_weight > 0:
+            real_AB = torch.cat((real_A, real_B), 1)
+            _ = netD(real_AB)
+            self.criterionFM.set_real_feature(netD.module)
+
         # combine loss and calculate gradients
         loss_G = loss_G_GAN + loss_G_L1
+        if self.opt.FMLoss_weight > 0:
+            loss_FM = self.opt.FMLoss_weight*self.criterionFM()
+            loss_G += loss_FM
         loss_G.backward()
         return loss_G_GAN, loss_G_L1, loss_G
 

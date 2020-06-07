@@ -30,7 +30,6 @@ import os
 from options.test_options import TestOptions
 from data import create_dataset
 from models import create_model
-import torch
 from util import util
 
 if __name__ == '__main__':
@@ -59,12 +58,7 @@ if __name__ == '__main__':
         model.set_input(data)  # unpack data from data loader
         model.test()           # run inference
         to_save = model.get_current_visuals()  # get image results
-        img_path = model.get_image_paths()     # get image paths
-        if i % 5 == 0:  # save images to an HTML file
-            print('processing (%04d)-th image... %s' % (i, img_path))
-        #to_save = torch.cat((to_save["real_A"], to_save["real_B"], to_save['fake_B']), 3)
+        #to_save = torch.cat((to_save["real_A"], to_save["real_B"], to_save['fake_B']), 2)
         to_save = to_save['fake_B']
         image_numpy = util.tensor2im(to_save)
         util.save_image(image_numpy, os.path.join("./results\\test\\", 'epoch%.3d.png' % i))
-        #save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
-    #webpage.save()  # save the HTML
