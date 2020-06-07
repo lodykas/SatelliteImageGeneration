@@ -1,8 +1,3 @@
-import torch
-import torchvision
-import torchvision.transforms as transforms
-import torchvision.utils as vutils
-from torch import Tensor
 from Dataset import *
 from NN import *
 import random
@@ -10,19 +5,6 @@ import random
 image_size = 512
 batch_size = 1
 num_epochs = 5
-lr = 0.0002
-beta1 = 0.5
-
-
-# custom weights initialization called on netG and netD
-def weights_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        nn.init.normal_(m.weight.data, 0.0, 0.02)
-    elif classname.find('BatchNorm') != -1:
-        nn.init.normal_(m.weight.data, 1.0, 0.02)
-        nn.init.constant_(m.bias.data, 0)
-
 
 transform = transforms.Compose(
     [transforms.ToPILImage(),
@@ -43,43 +25,44 @@ def data_augment(x):
     return x[i:(i + tw), j:(j + th), :]
 
 dataSet = SatelliteDataset("val\\", transform=transform, data_augment=None)
-#dataSet = HighwayDataset("pix2pix\\pytorch-CycleGAN-and-pix2pix\\datasets\\maps\\road_test", transform=transform, data_augment=data_augment)
+# dataSet = HighwayDataset("pix2pix\\pytorch-CycleGAN-and-pix2pix\\datasets\\maps\\road_test", transform=transform, data_augment=data_augment)
 
 dataloader = torch.utils.data.DataLoader(dataSet, batch_size=batch_size, shuffle=False, num_workers=0)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-netC = Classifier(9).to(device)
-netCparam = torch.load("models\\Classifier.nn")
+netC = InceptionDiscriminator(9).to(device)
+netCparam = torch.load("models\\ClassifierWithunet2.nn")
 netC.load_state_dict(netCparam)
+netC.eval()
 
-avg = 0
 res = []
 false_negatives = 0
 false_positives = 0
 neg = 0
 pos = 0
+with torch.no_grad():
+    for i, data in enumerate(dataloader, 0):
+        data, label = data
+        data = data.to(device)
 
-for i, data in enumerate(dataloader, 0):
-    data, label = data
-    data = data.to(device)
+        out = netC(data)
+        res.append(out)
+        _, pred = torch.max(out, 1)
+        pred = pred.item()
+        if label == 1.0:
+            pos += 1
+            if pred == 0:
+                false_negatives += 1
+        else:
+            neg += 1
+            if pred == 1:
+                false_positives += 1
 
-    out = netC(data)[0].item()
-    res.append(out)
-    avg += out
-    if label == 1.0:
-        pos += 1
-        if out < 0.5 :
-            false_negatives += 1
-    else:
-        neg += 1
-        if out >= 0.5:
-            false_positives += 1
+true_positives = pos - false_negatives
+true_negatives = neg - false_positives
+print("false negatives: %d out of %d positive images" % (false_negatives, pos))
+print("false positives: %d out of %d negative images" % (false_positives, neg))
 
-avg /= len(dataloader)
-print(avg)
-print("false negatives: %d out of %d images" % (false_negatives, pos))
-print("false positives: %d out of %d images" % (false_positives, neg))
-res.sort()
-print(res[0], res[-1])
-
+F1 = 2*true_positives/(2*true_positives + false_negatives + false_positives)
+print("F1 score : %f" % F1)

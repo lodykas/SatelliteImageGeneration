@@ -31,7 +31,7 @@ class SatelliteDataset(Dataset):
 			for file in files:
 				self.names.append(file)
 				self.len += 1
-				if file.find("ADE"):
+				if file.find("ADE") >= 0:
 					self.label.append(0.0)
 				else:
 					self.label.append(1.0)
@@ -71,8 +71,10 @@ class HighwayDataset(Dataset):
 			for dir in dirs:
 				if dir == "road":
 					label = 1.0
-				else:
+				elif dir == "noroad":
 					label = 0.0
+				else:
+					continue
 				inner = os.path.join(data_dir, dir)
 				for _, _, files in os.walk(inner):
 					for file in files:
