@@ -1,4 +1,4 @@
-<img src='imgs/horse2zebra.gif' align="right" width=384>
+This project was build upon a base pix2pix implementation available here: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix
 
 <br><br><br>
 
@@ -22,12 +22,7 @@ You may find useful information in [training/test tips](docs/tips.md) and [frequ
 **Pix2pix:  [Project](https://phillipi.github.io/pix2pix/) |  [Paper](https://arxiv.org/pdf/1611.07004.pdf) |  [Torch](https://github.com/phillipi/pix2pix) |
 [Tensorflow Core Tutorial](https://www.tensorflow.org/tutorials/generative/cyclegan) | [PyTorch Colab](https://colab.research.google.com/github/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/pix2pix.ipynb)**
 
-<img src="https://phillipi.github.io/pix2pix/images/teaser_v3.png" width="800px"/>
-
-
 **[EdgesCats Demo](https://affinelayer.com/pixsrv/) | [pix2pix-tensorflow](https://github.com/affinelayer/pix2pix-tensorflow) | by [Christopher Hesse](https://twitter.com/christophrhesse)**
-
-<img src='imgs/edges2cats.jpg' width="400px"/>
 
 If you use this code for your research, please cite:
 
