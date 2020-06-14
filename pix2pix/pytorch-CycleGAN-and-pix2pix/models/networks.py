@@ -784,3 +784,95 @@ class PixelDiscriminator(nn.Module):
     def forward(self, input):
         """Standard forward."""
         return self.net(input)
+
+
+class Classifier(nn.Module):
+    def __init__(self, nb_down, ndf = 64):
+        super(Classifier, self).__init__()
+        model = []
+
+
+        model += [nn.Conv2d(3, ndf, 4, 2, 1, bias=False),
+                  nn.LeakyReLU(0.2, inplace=True)]
+
+        nb_down -= 1
+        for i in range(min(nb_down, 3)):
+            mult = 2 ** i
+            model += [nn.Conv2d(ndf * mult, ndf * 2 * mult, 4, 2, 1, bias=False),
+                      nn.BatchNorm2d(ndf * mult * 2),
+                      nn.LeakyReLU(0.2, inplace=True)]
+
+        for i in range(nb_down - 4):
+            model += [nn.Conv2d(ndf * 8, ndf * 8, 4, 2, 1, bias=False),
+                      nn.BatchNorm2d(ndf * 8),
+                      nn.LeakyReLU(0.2, inplace=True)]
+
+        model += [nn.Conv2d(ndf * 8, 2, 2, 1, 0, bias=False),
+                  nn.Sigmoid()]
+        self.main = nn.Sequential(*model)
+
+    def forward(self, input, mask=None):
+        output = self.main(input)
+        return output
+
+
+class MonoClassifier(nn.Module):
+    def __init__(self, nb_down, ndf = 64):
+        super(MonoClassifier, self).__init__()
+        model = []
+
+        model += [nn.Conv2d(3, ndf, 4, 2, 1, bias=False),
+                  nn.LeakyReLU(0.2, inplace=True)]
+
+        nb_down -= 1
+        for i in range(min(nb_down, 3)):
+            mult = 2 ** i
+            model += [nn.Conv2d(ndf * mult, ndf * 2 * mult, 4, 2, 1, bias=False),
+                      nn.BatchNorm2d(ndf * mult * 2),
+                      nn.LeakyReLU(0.2, inplace=True)]
+
+        for i in range(nb_down - 4):
+            model += [nn.Conv2d(ndf * 8, ndf * 8, 4, 2, 1, bias=False),
+                      nn.BatchNorm2d(ndf * 8),
+                      nn.LeakyReLU(0.2, inplace=True)]
+
+        model += [nn.Conv2d(ndf * 8, 1, 2, 1, 0, bias=False),
+                  nn.Sigmoid()]
+        self.main = nn.Sequential(*model)
+
+    def forward(self, input, mask=None):
+        output = self.main(input)
+        return torch.tensor([output, 1 - output])
+
+
+class InceptionDiscriminator(nn.Module):
+    def __init__(self, nb_down, ndf=64):
+        super(InceptionDiscriminator, self).__init__()
+        model = []
+        self.ndf = ndf
+        self.feature_layer = None
+        model += [nn.Conv2d(3, ndf, 4, 2, 1, bias=False),
+                  nn.LeakyReLU(0.2, inplace=True)]
+
+        nb_down -= 1
+        for i in range(min(nb_down, 3)):
+            mult = 2 ** i
+            model += [nn.Conv2d(ndf * mult, ndf * 2 * mult, 4, 2, 1, bias=False),
+                      nn.BatchNorm2d(ndf * mult * 2),
+                      nn.LeakyReLU(0.2, inplace=True)]
+
+        for i in range(nb_down - 3):
+            model += [nn.Conv2d(ndf * 8, ndf * 8, 4, 2, 1, bias=False),
+                      nn.BatchNorm2d(ndf * 8),
+                      nn.LeakyReLU(0.2, inplace=True)]
+
+        self.main = nn.Sequential(*model)
+        self.linear = nn.Sequential(nn.Linear(ndf * 8, ndf * 4), nn.ReLU(), nn.Linear(ndf * 4, ndf), nn.ReLU(),
+                                    nn.Linear(ndf, 2))
+
+    def forward(self, input, mask=None):
+        output = self.main(input)
+        output = output.view(-1, self.ndf * 8)
+        self.feature_layer = output
+        output = self.linear(output)
+        return output

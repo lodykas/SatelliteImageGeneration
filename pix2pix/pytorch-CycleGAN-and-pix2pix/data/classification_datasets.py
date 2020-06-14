@@ -43,7 +43,7 @@ class SatelliteDataset(Dataset):
 		if torch.is_tensor(idx):
 			idx = idx.tolist()
 
-		img_name = os.path.join(self.data_dir,self.names[idx])
+		img_name = os.path.join(self.data_dir, self.names[idx])
 		image = io.imread(img_name)
 
 		if self.data_augment:

@@ -1,12 +1,12 @@
-from Dataset import *
-from NN import *
+from data.classification_datasets import *
+from models.networks import *
 import random
 import scipy.linalg as linalg
 import sys
 import numpy as np
 
 image_size = 512
-batch_size = 50
+batch_size = 40
 
 transform = transforms.Compose(
     [transforms.ToPILImage(),
@@ -16,7 +16,7 @@ transform = transforms.Compose(
 
 def data_augment(x):
     # x is a 600 x 600 x nc ndarray
-    input_size = 600
+    input_size = x.shape[0]
     output_size = 512
     th, tw = output_size, output_size
     if input_size == tw and input_size == th:
@@ -30,12 +30,12 @@ def data_augment(x):
 with torch.no_grad():
     device = torch.device("cuda:0")
     netC = InceptionDiscriminator(9).to(device)
-    netCparam = torch.load("models\\ClassifierWithunet2.nn")
+    netCparam = torch.load("checkpoints\\FID_model.nn")
     netC.load_state_dict(netCparam)
     netC.eval()
 
     # Real data Gaussian empiric parameter
-    dataSet = SatelliteDataset(sys.argv[2], transform=transform, data_augment=data_augment)
+    dataSet = SatelliteDataset(sys.argv[3], transform=transform, data_augment=data_augment)
     dataloader = torch.utils.data.DataLoader(dataSet, batch_size=batch_size, shuffle=False, num_workers=0)
 
     sum = np.zeros(512)
@@ -59,7 +59,7 @@ with torch.no_grad():
     cov_1 = sum_sq/sum_sq.shape[0]
 
     # Fake data Gaussian empiric parameter
-    dataSet = SatelliteDataset(sys.argv[3], transform=transform, data_augment=data_augment)
+    dataSet = SatelliteDataset(sys.argv[2], transform=transform, data_augment=data_augment)
     dataloader = torch.utils.data.DataLoader(dataSet, batch_size=batch_size, shuffle=False, num_workers=0)
 
     sum = np.zeros(512)

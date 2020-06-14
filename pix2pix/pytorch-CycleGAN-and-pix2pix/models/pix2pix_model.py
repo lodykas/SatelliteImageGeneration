@@ -3,10 +3,8 @@ import os
 import torch
 from torch import nn
 from .base_model import BaseModel
-from models import create_model
 from . import networks
 from itertools import chain
-import copy
 
 
 class Pix2PixModel(BaseModel):
